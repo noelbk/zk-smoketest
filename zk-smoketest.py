@@ -69,7 +69,7 @@ if __name__ == '__main__':
     servers = get_zk_servers(options.configfile)
 
     # create all the sessions first to ensure that all servers are
-    # at least available & quorum has been formed. otw this will 
+    # at least available & quorum has been formed. otw this will
     # fail right away (before we start creating nodes)
     sessions = []
     # create one session to each of the servers in the ensemble

@@ -72,7 +72,7 @@ class SmokeError(Exception):
 def print_elap(start, msg, count):
     elapms = (time.time() - start) * 1000
     if int(elapms) != 0:
-        print("%s in %6d ms (%f ms/op %f/sec)"
+        print("%-20s %6d ms (%f ms/op %f/sec)"
               % (msg, int(elapms), elapms/count, count/(elapms/1000.0)))
     else:
         print("%s in %6d ms (included in prior)" % (msg, int(elapms)))
@@ -92,30 +92,31 @@ def child_path(i):
     return "%s/session_%d" % (options.root_znode, i)
 
 def synchronous_latency_test(s, data):
+    print "znode_count=%s" % (options.znode_count)
     # create znode_count znodes (perm)
     timer((s.create(child_path(j), data)
            for j in xrange(options.znode_count)),
-          "created %7d permanent znodes " % (options.znode_count))
+          "create_permanent" )
 
     # set znode_count znodes
     timer((s.set(child_path(j), data)
            for j in xrange(options.znode_count)),
-          "set     %7d           znodes " % (options.znode_count))
+          "set")
 
     # get znode_count znodes
     timer((s.get(child_path(j))
            for j in xrange(options.znode_count)),
-          "get     %7d           znodes " % (options.znode_count))
+          "get")
 
     # delete znode_count znodes
     timer((s.delete(child_path(j))
            for j in xrange(options.znode_count)),
-          "deleted %7d permanent znodes " % (options.znode_count))
+          "delete")
 
     # create znode_count znodes (ephemeral)
     timer((s.create(child_path(j), data, zookeeper.EPHEMERAL)
            for j in xrange(options.znode_count)),
-          "created %7d ephemeral znodes " % (options.znode_count))
+          "create_ephemeral")
 
     # watch znode_count znodes
     watches = [CountingWatcher() for x in xrange(options.watch_multiple)]
@@ -123,14 +124,13 @@ def synchronous_latency_test(s, data):
         for watch in watches:
             s.exists(child_path(j), watch)
     timer((watch(j) for j in xrange(options.znode_count)),
-          "watched %7d           znodes " %
-          (options.watch_multiple * options.znode_count),
+          "watch",
           options.watch_multiple * options.znode_count)
 
     # # delete znode_count znodes
     timer((s.delete(child_path(j))
            for j in xrange(options.znode_count)),
-          "deleted %7d ephemeral znodes " % (options.znode_count))
+          "delete_ephemeral")
 
     start = time.time()
     for watch in watches:
@@ -138,7 +138,7 @@ def synchronous_latency_test(s, data):
             raise SmokeError("wrong number of watches: %d" %
                              (watch.count))
     print_elap(start,
-               "notif   %7d           watches" % (options.watch_multiple * options.znode_count),
+               "notif_watches",
                (options.watch_multiple * options.znode_count))
 
 def asynchronous_latency_test(s, data):
@@ -157,7 +157,7 @@ def asynchronous_latency_test(s, data):
                 raise SmokeError("invalid path %s for operation %d on handle %d" %
                                  (cb.path, j, cb.handle))
 
-    timer2(func, "created %7d permanent znodes " % (options.znode_count))
+    timer2(func, "create_permanent")
 
     # set znode_count znodes
     def func():
@@ -171,7 +171,7 @@ def asynchronous_latency_test(s, data):
         for cb in callbacks:
             cb.waitForSuccess()
 
-    timer2(func, "set     %7d           znodes " % (options.znode_count))
+    timer2(func, "set")
 
     # get znode_count znodes
     def func():
@@ -188,7 +188,7 @@ def asynchronous_latency_test(s, data):
                 raise SmokeError("invalid data %s for operation %d on handle %d" %
                                  (cb.value, j, cb.handle))
 
-    timer2(func, "get     %7d           znodes " % (options.znode_count))
+    timer2(func, "get")
 
 
     # delete znode_count znodes (perm)
@@ -203,7 +203,7 @@ def asynchronous_latency_test(s, data):
         for cb in callbacks:
             cb.waitForSuccess()
 
-    timer2(func, "deleted %7d permanent znodes " % (options.znode_count))
+    timer2(func, "delete_permanent")
 
     # create znode_count znodes (ephemeral)
     def func():
@@ -220,7 +220,7 @@ def asynchronous_latency_test(s, data):
                 raise SmokeError("invalid path %s for operation %d on handle %d" %
                                  (cb.path, j, cb.handle))
 
-    timer2(func, "created %7d ephemeral znodes " % (options.znode_count))
+    timer2(func, "create_ephemeral")
 
     watches = [CountingWatcher() for x in xrange(options.watch_multiple)]
 
@@ -237,8 +237,7 @@ def asynchronous_latency_test(s, data):
         for cb in callbacks:
             cb.waitForSuccess()
 
-    timer2(func, "watched %7d           znodes " %
-           (options.watch_multiple * options.znode_count),
+    timer2(func, "watch",
            options.watch_multiple * options.znode_count)
 
     # delete znode_count znodes (ephemeral)
@@ -253,7 +252,7 @@ def asynchronous_latency_test(s, data):
         for cb in callbacks:
             cb.waitForSuccess()
 
-    timer2(func, "deleted %7d ephemeral znodes " % (options.znode_count))
+    timer2(func, "delete_ephemeral")
 
     start = time.time()
     for watch in watches:
@@ -261,7 +260,7 @@ def asynchronous_latency_test(s, data):
             raise SmokeError("wrong number of watches: %d" %
                              (watch.count))
     print_elap(start,
-               "notif   %7d           watches" % (options.watch_multiple * options.znode_count),
+               "notif_watches",
                (options.watch_multiple * options.znode_count))
 
 def read_zk_config(filename):
@@ -285,7 +284,7 @@ if __name__ == '__main__':
     servers = get_zk_servers(options.configfile)
 
     # create all the sessions first to ensure that all servers are
-    # at least available & quorum has been formed. otw this will 
+    # at least available & quorum has been formed. otw this will
     # fail right away (before we start creating nodes)
     sessions = []
     # create one session to each of the servers in the ensemble
@@ -308,7 +307,7 @@ if __name__ == '__main__':
 
     for i, s in enumerate(sessions):
         if options.synchronous:
-            type = "syncronous" 
+            type = "syncronous"
         else:
             type = "asynchronous"
         print("Testing latencies on server %s using %s calls" %
